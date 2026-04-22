@@ -1,0 +1,390 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+////////////////////////////////////////////////
+// ENUM
+////////////////////////////////////////////////
+
+enum ReferralType {
+  CONTINUOUS // ต่อเนื่อง
+  SPECIALIST // เฉพาะทาง
+  ONE_TIME // รายครั้ง
+}
+
+enum CaseStatus {
+  PENDING // รอดำเนินการ
+  RECEIVED // รับเคสแล้ว
+  CONFIRMED // ยืนยันแล้ว
+  APPOINTED // นัดหมายแล้ว
+  COMPLETED // เสร็จสิ้น
+  CANCELLED // ยกเลิก
+}
+
+enum Role {
+  ADMIN
+  COUNTER
+  VETCMU
+  VET
+  USER
+}
+
+enum Permission {
+  READ
+  CREATE
+  UPDATE
+  DELETE
+  EXPORT
+  SEND_MAIL
+  VIEW_PRIVATE
+}
+
+enum AnimalSex {
+  M
+  F
+}
+
+enum SterilizationStatus {
+  YES
+  NO
+  UNKNOWN
+}
+
+enum PetType {
+  Dog
+  Cat
+  Exotic
+}
+
+enum ReferralServiceCode {
+  DERM // คลินิกโรคผิวหนัง
+  OPH // คลินิกโรคตา
+  DENT // คลินิกช่องปากและทันตกรรม
+  ORTH // คลินิกกระดูกและข้อต่อ
+  CARD // คลินิกหัวใจและหลอดเลือด
+  NEURO // คลินิกระบบประสาทและสมอง
+  FEL // คลินิกโรคแมว
+  ONC // คลินิกโรคเนื้องอก
+  PT // คลินิกกายภาพบำบัด
+  ENDO // คลินิกฮอร์โมนและต่อมไร้ท่อ
+  GI // คลินิกระบบทางเดินอาหาร
+  NEPH // คลินิกโรคไต
+  ACU // คลินิกฝังเข็ม
+  EXOT // คลินิกสัตว์ชนิดพิเศษ
+  AQUA // คลินิกสัตว์น้ำ
+  CT // คลินิกทัศนวินิจฉัย/CT SCAN
+  US // คลินิกทัศนวินิจฉัย/Ultrasound
+  GIM // หน่วยอายุรกรรมทั่วไป
+  ASU // หน่วยศัลยกรรมนอก
+}
+
+enum MedicalFileCategory {
+  HISTORY // ประวัติการรักษา (PDF) - บังคับ
+  LAB // ผลแล็บ/ผลเลือด - ไม่บังคับ
+  XRAY // X-ray - ไม่บังคับ
+  PHOTO // ภาพถ่าย - ไม่บังคับ
+  BIOPSY // ผลชิ้นเนื้อ - ไม่บังคับ (โชว์เฉพาะ ONC)
+  APPOINTMENT // ใบนัด - ไม่บังคับ
+}
+
+enum AllowedFileType {
+  DOCUMENT
+  IMAGE
+  OTHER
+}
+
+////////////////////////////////////////////////
+// LINE 
+////////////////////////////////////////////////
+model LineGroup {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  groupId   String   @unique
+  createdAt DateTime @default(now())
+}
+
+////////////////////////////////////////////////
+// CMU ACCOUNT TABLE
+////////////////////////////////////////////////
+model CmuItAccount {
+  id          String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  cmu_codeId  String       @unique // CMU-00-00000-2025 > CODE = CMU , PASS = 00:CmuItAccount(admin) , RANDOM_NUMBER = 012355, YEAR = 2025
+  name        String
+  email       String       @unique
+  role        Role         @default(USER)
+  permissions Permission[] @default([])
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  adminCases  CaseReferral[] @relation("CaseReferral_Admin")
+  vetcmuCases CaseReferral[] @relation("CaseReferral_VetCMU")
+
+  @@map("cmu_it_accounts")
+}
+
+////////////////////////////////////////////////
+// FEEDBACK
+////////////////////////////////////////////////
+model Feedback {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  ipAddress String
+  rating    Int
+  comment   String?
+  createdAt DateTime @default(now())
+
+  @@map("feedback")
+}
+
+////////////////////////////////////////////////
+// HOSPITALS
+////////////////////////////////////////////////
+
+model Hospital {
+  id   String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name String
+  type String @default("hospital")
+
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @default(now())
+  veterinarians Veterinarian[] @relation("VeterinarianWorkplaces")
+  owners        Owner[]
+  caseReferrals CaseReferral[]
+
+  @@map("hospitals")
+}
+
+////////////////////////////////////////////////
+// Service Referral
+////////////////////////////////////////////////
+model ServiceReferral {
+  id   String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  code String
+  name String
+
+  caseReferrals CaseReferral[]
+
+  @@map("service")
+}
+
+////////////////////////////////////////////////
+// MASTER TABLE
+////////////////////////////////////////////////
+
+model Veterinarian {
+  id         String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  vet_codeId String @unique // VET-01-00000-2025 > CODE = VET , PASS = 01:Veterinarian , RANDOM_NUMBER = 012355, YEAR = 2025
+  firstName  String
+  lastName   String
+  email      String @unique
+  phone      String
+  ceLicense  String
+  password   String
+  lineID     String
+
+  hospitals Hospital[] @relation("VeterinarianWorkplaces")
+
+  otp    String? // ทำฟั่งชั่นกำหนด เวลา otp ให้มีหมดอายุ
+  expotp DateTime? // บันทึกเวลา ณ ปัจจุบัน ลงไป ใช้การคำนวณ ผ่าน Backend Check ตอนส่งเลข otp กดมาเวลาไหน แล้วไปคำนวณ กับค่า expotp ใน database
+
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  owners        Owner[]
+  caseReferrals CaseReferral[]
+
+  @@map("veterinarian")
+}
+
+model Owner {
+  id           String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  owner_codeId String  @unique // OWN-02-00000-2025 > CODE = REF , PASS = 02:Owner , RANDOM_NUMBER = 012355, YEAR = 2025
+  firstName    String
+  lastName     String
+  email        String?
+  phone        String
+  address      String
+
+  animals Animal[]
+
+  hospitalId     String       @db.Uuid
+  veterinarianId String       @db.Uuid
+  hospitals      Hospital     @relation(fields: [hospitalId], references: [id])
+  veterinarian   Veterinarian @relation(fields: [veterinarianId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("owner")
+}
+
+model Animal {
+  id                String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  animal_codeId     String              @unique // PET-03-00000-2025 > CODE = ANI , PASS = 03:Animal , RANDOM_NUMBER = 012355, YEAR = 2025
+  name              String
+  color             String
+  sex               AnimalSex
+  weight            String?
+  age               String
+  sterilization     SterilizationStatus
+  species           PetType // สุนัข, แมว ฯลฯ
+  exoticdescription String? // ประเภท Exotic เช่น เต๋า ม้าน้ำ
+  breed             String?
+
+  ownerId String @db.Uuid
+  owner   Owner  @relation(fields: [ownerId], references: [id])
+
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  caseReferrals CaseReferral[]
+
+  @@map("animal")
+}
+
+////////////////////////////////////////////////
+// CORE SYSTEM
+////////////////////////////////////////////////
+
+model CaseReferral {
+  id          String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  referenceNo String @unique // REF-04-00000-2025 > CODE = REF , PASS = 04:CaseReferral , RANDOM_NUMBER = 012355, YEAR = 2025
+
+  title        String
+  description  String?
+  referralType ReferralType
+  status       CaseStatus          @default(PENDING)
+  serviceCode  ReferralServiceCode
+
+  // --- Relations (ตาม requirement) ---
+  hospitalId String   @db.Uuid
+  hospital   Hospital @relation(fields: [hospitalId], references: [id])
+
+  veterinarianId String       @db.Uuid
+  veterinarian   Veterinarian @relation(fields: [veterinarianId], references: [id])
+
+  petId String @db.Uuid
+  pet   Animal @relation(fields: [petId], references: [id])
+
+  serviceId       String          @db.Uuid
+  serviceReferral ServiceReferral @relation(fields: [serviceId], references: [id])
+
+  adminId String?       @db.Uuid
+  admin   CmuItAccount? @relation("CaseReferral_Admin", fields: [adminId], references: [id])
+
+  vetcmuId String?       @db.Uuid
+  vetcmu   CmuItAccount? @relation("CaseReferral_VetCMU", fields: [vetcmuId], references: [id])
+
+  // --- Children ---
+  appointments   Appointment[]
+  medicalFiles   MedicalFile[]
+  caseStatusLogs CaseStatusLog[]
+
+  // --- Close/Result ---
+  resultSummary String?
+  closedAt      DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([hospitalId])
+  @@index([veterinarianId])
+  @@index([petId])
+  @@index([serviceCode])
+  @@index([status])
+  @@map("case_referrals")
+}
+
+model Appointment {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+
+  caseId String       @db.Uuid
+  case   CaseReferral @relation(fields: [caseId], references: [id])
+
+  date DateTime
+  note String?
+
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  medicalFiles MedicalFile[]
+
+  @@index([caseId])
+  @@index([date])
+  @@map("appointments")
+}
+
+model MedicalFile {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+
+  caseId        String       @db.Uuid
+  case          CaseReferral @relation(fields: [caseId], references: [id])
+  appointmentId String?      @db.Uuid
+  appointment   Appointment? @relation(fields: [appointmentId], references: [id])
+
+  category      MedicalFileCategory
+  name          String
+  originalName  String // ชื่อไฟล์เดิมจากผู้ใช้
+  mimeType      String // เช่น "application/pdf", "image/png"
+  fileExtension String // เช่น "pdf", "docx", "png" - สำหรับ validate ง่าย
+  sizeBytes     Int
+
+  // ✅ เก็บเฉพาะ URL ที่ผ่าน validation แล้ว
+  fileUrl String
+  fileKey String? // S3/Storage key สำหรับจัดการไฟล์
+
+  // ✅ Metadata สำหรับตรวจสอบความถูกต้อง
+  fileType  AllowedFileType // ประเภทไฟล์ที่ normalize แล้ว
+  isAllowed Boolean         @default(true) // flag ว่าไฟล์นี้ผ่าน validation
+
+  // ✅ Hash สำหรับตรวจสอบความสมบูรณ์ของไฟล์ (optional)
+  fileHash String? // SHA256 hash
+
+  labResults LabResult[]
+
+  uploadedBy String   @db.Uuid // userId ที่อัพโหลด
+  createdAt  DateTime @default(now())
+
+  // ให้เพิ่มไฟล์ ใบนัดเข้าไป ด้วย โดยให้สร้าง โฟเดอร์ ใบนัด
+
+  @@index([appointmentId])
+  @@index([caseId])
+  @@index([category])
+  @@index([fileType])
+  @@index([isAllowed])
+  @@map("medical_files")
+}
+
+model LabResult {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+
+  medicalFileId String      @db.Uuid
+  medicalFile   MedicalFile @relation(fields: [medicalFileId], references: [id])
+
+  title       String
+  description String?
+  resultData  String? // JSON/text
+
+  createdAt DateTime @default(now())
+
+  @@index([medicalFileId])
+  @@map("lab_results")
+}
+
+model CaseStatusLog {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+
+  caseId String       @db.Uuid
+  case   CaseReferral @relation(fields: [caseId], references: [id])
+
+  oldStatus CaseStatus
+  newStatus CaseStatus
+
+  changedBy String? // userId / staffId
+  note      String?
+
+  createdAt DateTime @default(now())
+
+  @@index([caseId])
+  @@map("case_status_logs")
+}
