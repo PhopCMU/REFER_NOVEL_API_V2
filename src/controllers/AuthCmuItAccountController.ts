@@ -381,20 +381,23 @@ export const updatePermissions = async ({
       return { success: false, message: "Invalid query data" };
     }
 
-    const { adminId, permissions } = decodedData;
+    const { adminId, permissions, role } = decodedData;
 
-    if (!adminId || !permissions) {
+    if (!adminId || !permissions || !role) {
       set.status = 400;
-      logger.warn("Missing adminId or permissions", {
+      logger.warn("Missing adminId, permissions, or role", {
         ...requestInfo,
         status: set.status,
       });
-      return { success: false, message: "Missing adminId or permissions" };
+      return {
+        success: false,
+        message: "Missing adminId, permissions, or role",
+      };
     }
 
     const updatedUser = await prisma.cmuItAccount.update({
       where: { id: adminId },
-      data: { permissions: permissions, updatedAt: new Date() },
+      data: { role: role, permissions: permissions, updatedAt: new Date() },
       select: {
         id: true,
         cmu_codeId: true,
