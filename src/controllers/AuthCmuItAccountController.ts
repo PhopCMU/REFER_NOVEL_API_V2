@@ -383,7 +383,7 @@ export const updatePermissions = async ({
 
     const { adminId, permissions, role } = decodedData;
 
-    if (!adminId || !permissions || !role) {
+    if (!adminId || !permissions) {
       set.status = 400;
       logger.warn("Missing adminId, permissions, or role", {
         ...requestInfo,
