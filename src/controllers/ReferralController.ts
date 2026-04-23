@@ -28,8 +28,9 @@ export const createReferralCase = async ({
   request,
   headers,
   set,
+  body,
   vetJwt,
-}: Context & { request: any; headers: any; vetJwt: any }) => {
+}: Context & { request: any; headers: any; body: any; vetJwt: any }) => {
   const requestInfo = getRequestInfo(request);
 
   // ✅ ตรวจสอบ Token
@@ -53,10 +54,18 @@ export const createReferralCase = async ({
   }
 
   try {
-    // ✅ 1. Parse FormData (สำหรับ multipart/form-data)
-    const formData = await request.formData();
+    // ✅ 1. Use body already parsed by Elysia — calling request.formData() again
+    //    would throw "Body already used" because Elysia consumed the stream first.
+    const _parsed = body as Record<string, any>;
+    const formData = {
+      get: (key: string): string | File | null => _parsed[key] ?? null,
+      getAll: (key: string): (string | File)[] => {
+        const val = _parsed[key];
+        return Array.isArray(val) ? val : val != null ? [val] : [];
+      },
+    };
 
-    // ✅ 2. ดึง encodedData จาก FormData (ไม่ใช่จาก body!)
+    // ✅ 2. ดึง encodedData จาก FormData
     const encodedData = formData.get("encodedData") as string;
     if (!encodedData) {
       set.status = 400;
@@ -293,8 +302,9 @@ export const createMedicalFile = async ({
   request,
   headers,
   set,
+  body,
   vetJwt,
-}: Context & { request: any; headers: any; vetJwt: any }) => {
+}: Context & { request: any; headers: any; body: any; vetJwt: any }) => {
   const requestInfo = getRequestInfo(request);
 
   // ✅ ตรวจสอบ Token
@@ -318,8 +328,16 @@ export const createMedicalFile = async ({
   }
 
   try {
-    // ✅ 1. Parse FormData (สำหรับ multipart/form-data)
-    const formData = await request.formData();
+    // ✅ 1. Use body already parsed by Elysia — calling request.formData() again
+    //    would throw "Body already used" because Elysia consumed the stream first.
+    const _parsed = body as Record<string, any>;
+    const formData = {
+      get: (key: string): string | File | null => _parsed[key] ?? null,
+      getAll: (key: string): (string | File)[] => {
+        const val = _parsed[key];
+        return Array.isArray(val) ? val : val != null ? [val] : [];
+      },
+    };
 
     // ✅ 2. ดึง ข้อมูลหลักจาก FormData
     const caseId = formData.get("caseId") as string;
@@ -990,8 +1008,9 @@ export const referralCaseAppointment = async ({
   request,
   headers,
   set,
+  body,
   adminJwt,
-}: Context & { request: any; headers: any; adminJwt: any }) => {
+}: Context & { request: any; headers: any; body: any; adminJwt: any }) => {
   const requestInfo = getRequestInfo(request);
 
   const authorization =
@@ -1012,7 +1031,16 @@ export const referralCaseAppointment = async ({
   }
 
   try {
-    const formData = await request.formData();
+    // ✅ Use body already parsed by Elysia — calling request.formData() again
+    //    would throw "Body already used" because Elysia consumed the stream first.
+    const _parsed = body as Record<string, any>;
+    const formData = {
+      get: (key: string): string | File | null => _parsed[key] ?? null,
+      getAll: (key: string): (string | File)[] => {
+        const val = _parsed[key];
+        return Array.isArray(val) ? val : val != null ? [val] : [];
+      },
+    };
     const encodedData = formData.get("encodedData") as string;
     const files = formData.getAll("files") as File[];
 
