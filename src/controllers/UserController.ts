@@ -384,7 +384,7 @@ export const userLinkResetPassword = async ({
     const encodedToken = useEncodecrypt(payload);
 
     const _URL =
-      "http://localhost:5230/forgot-password?id=" +
+      "https://referral.vet.cmu.ac.th/forgot-password?id=" +
       encodeURIComponent(encodedToken);
 
     await sendTemplateEmail(email, "reset-password", "รหัสผ่านใหม่ของคุณ", {
