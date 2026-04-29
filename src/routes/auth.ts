@@ -7,6 +7,7 @@ import {
   userRegister,
   userResetPassword,
   userUpdateProfile,
+  userVetProfiles,
 } from "../controllers/UserController";
 import { adminJwt, vetJwt } from "../libs/Jwt";
 import {
@@ -61,6 +62,10 @@ authRouter.post("/new-password", userResetPassword, {
 
 // === GET === //
 authRouter.use(adminJwt).get("/cmu-it-account", getCmuItAccount, {
+  tags: ["Admin"],
+});
+
+authRouter.use(adminJwt).get("/vet-members", userVetProfiles, {
   tags: ["Admin"],
 });
 

@@ -1,5 +1,5 @@
 import { Context } from "elysia";
-import { verifyVetTokenVet } from "../utils/authGuard";
+import { verifyVetTokenAdmin, verifyVetTokenVet } from "../utils/authGuard";
 import { logger } from "../utils/logger";
 import { getRequestInfo } from "../utils/requestInfo";
 import {
@@ -130,6 +130,83 @@ export const createdPet = async ({
 };
 
 // === GET ===
+
+export const getPets = async ({
+  set,
+  request,
+  adminJwt,
+}: Context & {
+  request: any;
+  adminJwt: any;
+}) => {
+  const requestInfo = getRequestInfo(request);
+
+  const authorization = request.headers.get("authorization") || null;
+  const authenUser = await verifyVetTokenAdmin(
+    adminJwt,
+    authorization?.toString() || "",
+  );
+
+  if (!authenUser) {
+    set.status = 401;
+    logger.warn("Unauthorized", {
+      ...requestInfo,
+      status: set.status,
+    });
+    return {
+      success: false,
+      message: "Unauthorized",
+    };
+  }
+
+  const admin = await prisma.cmuItAccount.findFirst({
+    where: {
+      email: authenUser.email,
+    },
+  });
+
+  if (!admin) {
+    set.status = 403;
+    logger.warn("Forbidden", {
+      ...requestInfo,
+      status: set.status,
+    });
+    return {
+      success: false,
+      message: "Forbidden",
+    };
+  }
+
+  try {
+    const pets = await prisma.animal.findMany({
+      include: {
+        owner: true,
+      },
+    });
+
+    set.status = 200;
+    logger.info("Get Pet API success", {
+      ...requestInfo,
+      status: set.status,
+    });
+    return {
+      success: true,
+      message: "Get Pet API success",
+      data: pets,
+    };
+  } catch (error) {
+    set.status = 500;
+    logger.error("Get Pet API error", {
+      ...requestInfo,
+      status: set.status,
+      JSONStringify: error,
+    });
+    return {
+      success: false,
+      message: "Internal server error",
+    };
+  }
+};
 
 // === DELETE ===
 export const deletePet = async ({

@@ -1,8 +1,9 @@
 import Elysia, { t } from "elysia";
-import { vetJwt } from "../libs/Jwt";
+import { adminJwt, vetJwt } from "../libs/Jwt";
 import {
   createdPet,
   deletePet,
+  getPets,
   updatedPet,
 } from "../controllers/PetController";
 
@@ -15,6 +16,9 @@ petsRouter.use(vetJwt).post("/create", createdPet, {
 });
 
 // === GET === //
+petsRouter.use(adminJwt).get("/admin/list", getPets, {
+  tags: ["Pets"],
+});
 // === DELETE === //
 petsRouter.use(vetJwt).delete("/delete", deletePet, {
   query: t.Object({ data: t.String() }),

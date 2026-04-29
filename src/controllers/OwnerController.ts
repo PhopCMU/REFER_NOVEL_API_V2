@@ -6,7 +6,7 @@ import {
   useDecodecryptQueryNew,
 } from "../utils/useCodes";
 import { PrismaClient } from "@prisma/client";
-import { verifyVetTokenVet } from "../utils/authGuard";
+import { verifyVetTokenAdmin, verifyVetTokenVet } from "../utils/authGuard";
 import { generateUniqueCode } from "../utils/generateCode";
 
 const prisma = new PrismaClient();
@@ -240,6 +240,86 @@ export const getOwners = async ({
       success: true,
       message: "Owner Get API success",
       _data: owners,
+    };
+  } catch (error: any) {
+    set.status = 500;
+    logger.error("User Register API error", {
+      ...requestInfo,
+      status: set.status,
+      JSONStringify: error,
+    });
+    return {
+      success: false,
+      message: "Internal server error",
+    };
+  }
+};
+
+export const getOwnersByAdmins = async ({
+  set,
+  request,
+  adminJwt,
+}: Context & { request: any; adminJwt: any }) => {
+  const requestInfo = getRequestInfo(request);
+
+  // 1. ตรวจสอบการเข้าสู่ระบบ
+  const authorization = request.headers.get("authorization") || null;
+  const authenUser = await verifyVetTokenAdmin(
+    adminJwt,
+    authorization?.toString() || "",
+  );
+
+  if (!authenUser) {
+    set.status = 401;
+    logger.warn("Unauthorized", {
+      ...requestInfo,
+      status: set.status,
+    });
+    return {
+      success: false,
+      message: "Unauthorized",
+    };
+  }
+
+  try {
+    const owners = await prisma.owner.findMany({
+      include: {
+        veterinarian: {
+          select: {
+            firstName: true,
+            lastName: true,
+            vet_codeId: true,
+            email: true,
+          },
+        },
+      },
+
+      orderBy: {
+        firstName: "asc",
+      },
+    });
+
+    if (!owners) {
+      set.status = 400;
+      logger.warn("Owner Get API error", {
+        ...requestInfo,
+        status: set.status,
+      });
+      return {
+        success: false,
+        message: "Owner Get API error",
+      };
+    }
+
+    set.status = 200;
+    logger.info("Owner Get API success", {
+      ...requestInfo,
+      status: set.status,
+    });
+    return {
+      success: true,
+      message: "Owner Get API success",
+      data: owners,
     };
   } catch (error: any) {
     set.status = 500;

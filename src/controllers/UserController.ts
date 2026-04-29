@@ -12,6 +12,7 @@ import { PrismaClient } from "@prisma/client";
 import { generateOTP, generateUniqueCode } from "../utils/generateCode";
 import { sendTemplateEmail } from "../email/emailservice";
 import { UserProps } from "../types/type";
+import { verifyVetTokenAdmin } from "../utils/authGuard";
 
 const prisma = new PrismaClient();
 
@@ -744,6 +745,97 @@ export const userUpdateProfile = async ({
   } catch (error) {
     set.status = 500;
     logger.error("User Update Profile API error", {
+      ...requestInfo,
+      status: set.status,
+      JSONStringify: error,
+    });
+    return {
+      success: false,
+      message: "Internal server error",
+    };
+  }
+};
+
+export const userVetProfiles = async ({
+  set,
+  request,
+  adminJwt,
+}: Context & {
+  request: any;
+  set: any;
+  adminJwt: any;
+}) => {
+  const requestInfo = getRequestInfo(request);
+
+  const authorization = request.headers.get("authorization") || "";
+  const authenUser = await verifyVetTokenAdmin(
+    adminJwt,
+    authorization.toString(),
+  );
+
+  if (!authenUser) {
+    set.status = 401;
+    logger.warn("Unauthorized", {
+      ...requestInfo,
+      status: set.status,
+    });
+    return {
+      success: false,
+      message: "Unauthorized",
+    };
+  }
+
+  const admin = await prisma.cmuItAccount.findFirst({
+    where: {
+      email: authenUser.email,
+    },
+  });
+
+  if (!admin) {
+    set.status = 403;
+    logger.warn("Forbidden", {
+      ...requestInfo,
+      status: set.status,
+    });
+    return {
+      success: false,
+      message: "Forbidden",
+    };
+  }
+
+  try {
+    const users = await prisma.veterinarian.findMany({
+      select: {
+        id: true,
+        email: true,
+        vet_codeId: true,
+        firstName: true,
+        lastName: true,
+        ceLicense: true,
+        phone: true,
+        lineID: true,
+        hospitals: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+      },
+    });
+
+    set.status = 200;
+    logger.info("User Profiles API success", {
+      ...requestInfo,
+      status: set.status,
+    });
+    return {
+      success: true,
+      message: "Success",
+      data: users,
+    };
+  } catch (error) {
+    set.status = 500;
+    logger.error("User Profiles API error", {
       ...requestInfo,
       status: set.status,
       JSONStringify: error,
